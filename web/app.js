@@ -2149,7 +2149,81 @@ function webViewerClick(evt) {
   }
 }
 
+// minimal keydown handling
 function webViewerKeyDown(evt) {
+  if (PDFViewerApplication.overlayManager.active) {
+    return;
+  }
+
+  let handled = false, ensureViewerFocused = false;
+  let cmd = (evt.ctrlKey ? 1 : 0) |
+            (evt.altKey ? 2 : 0) |
+            (evt.shiftKey ? 4 : 0) |
+            (evt.metaKey ? 8 : 0);
+
+  let pdfViewer = PDFViewerApplication.pdfViewer;
+  let isViewerInPresentationMode = pdfViewer && pdfViewer.isInPresentationMode;
+
+  // Some shortcuts should not get handled if a control/input element
+  // is selected.
+  let curElement = document.activeElement || document.querySelector(':focus');
+  let curElementTagName = curElement && curElement.tagName.toUpperCase();
+  if (curElementTagName === 'INPUT' ||
+      curElementTagName === 'TEXTAREA' ||
+      curElementTagName === 'SELECT') {
+    // Make sure that the secondary toolbar is closed when Escape is pressed.
+    if (evt.keyCode !== 27) { // 'Esc'
+      return;
+    }
+  }
+
+  if (cmd === 0) { // no control key pressed at all.
+    let turnPage = 0, turnOnlyIfPageFit = false;
+    switch (evt.keyCode) {
+      case 36: // home
+        if (isViewerInPresentationMode || PDFViewerApplication.page > 1) {
+          PDFViewerApplication.page = 1;
+          handled = true;
+          ensureViewerFocused = true;
+        }
+        break;
+      case 35: // end
+        if (isViewerInPresentationMode ||
+            PDFViewerApplication.page < PDFViewerApplication.pagesCount) {
+          PDFViewerApplication.page = PDFViewerApplication.pagesCount;
+          handled = true;
+          ensureViewerFocused = true;
+        }
+        break;
+      case 82: // 'r'
+        PDFViewerApplication.rotatePages(90);
+        break;
+    }
+  }
+
+  if (!handled && !isViewerInPresentationMode) {
+    // 33=Page Up  34=Page Down  35=End    36=Home
+    // 37=Left     38=Up         39=Right  40=Down
+    // 32=Spacebar
+    if ((evt.keyCode >= 33 && evt.keyCode <= 40) ||
+        (evt.keyCode === 32 && curElementTagName !== 'BUTTON')) {
+      ensureViewerFocused = true;
+    }
+  }
+
+  if (ensureViewerFocused && !pdfViewer.containsElement(curElement)) {
+    // The page container is not focused, but a page navigation key has been
+    // pressed. Change the focus to the viewer container to make sure that
+    // navigation by keyboard works as expected.
+    pdfViewer.focus();
+  }
+
+  if (handled) {
+    evt.preventDefault();
+  }
+}
+
+function webViewerKeyDown_ORIG(evt) {
   if (PDFViewerApplication.overlayManager.active) {
     return;
   }
